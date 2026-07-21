@@ -1,0 +1,31 @@
+{
+    log {
+        level ERROR
+    }
+}
+
+:80 {
+    # Логи для зручності
+    log
+
+    # 1. Роздача статики (картинки, файли)
+    # Якщо запит починається на /uploads - шукаємо в папці /srv/uploads
+    handle_path /uploads/* {
+        root * /srv/uploads
+        file_server
+    }
+
+    # 2. Swagger UI + OpenAPI JSON (dev only — UseSwagger() activates when ASPNETCORE_ENVIRONMENT=Development)
+    handle /swagger/* {
+        reverse_proxy dev-api:8080
+    }
+    handle /swagger {
+        reverse_proxy dev-api:8080
+    }
+
+    # 3. Проксі на API
+    # Всі інші запити кидаємо на контейнер dev-api, порт 8080
+    handle /* {
+        reverse_proxy dev-api:8080
+    }
+}

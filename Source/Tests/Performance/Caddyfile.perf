@@ -1,0 +1,10 @@
+:80 {
+	handle /uploads/* {
+		root * /srv
+		file_server
+	}
+
+	handle {
+		reverse_proxy perf-api:8080
+	}
+}

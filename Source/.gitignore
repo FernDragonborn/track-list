@@ -1,0 +1,69 @@
+node_modules
+package-lock.json
+
+# Local uploads/logs/runtime data
+/uploads/
+/Backend/track-list-api/logs/
+
+# Frontend output
+.svelte-kit/
+.output/
+.vercel/
+.netlify/
+.wrangler/
+build/
+coverage/
+/Frontend/.svelte-kit/
+/Frontend/.output/
+/Frontend/.vercel/
+/Frontend/.netlify/
+/Frontend/.wrangler/
+/Frontend/build/
+/Frontend/coverage/
+/frontend/.svelte-kit/
+/frontend/.output/
+/frontend/.vercel/
+/frontend/.netlify/
+/frontend/.wrangler/
+/frontend/build/
+/frontend/coverage/
+
+# Environment files
+.env
+.env.*
+!.env.example
+!.env.test
+
+# Vite temporary files
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# Seeder local data
+/seeder/data/
+/seeder/scraped/
+/seeder/*.log
+/seeder/__pycache__/
+/seeder/*.pyc
+
+# Performance test output
+/Tests/Performance/results/*.json
+/Tests/Performance/results/*.html
+/Tests/Performance/results/*.csv
+/Tests/Performance/results/*.log
+/Tests/Performance/data/seed-data.json
+
+# IDE local state
+/Backend/.idea/.idea.track-list-api/.idea/shelf/
+/Backend/.idea/.idea.track-list-api/.idea/workspace.xml
+/Backend/.idea/.idea.track-list-api/.idea/contentModel.xml
+/Backend/.idea/.idea.track-list-api/.idea/modules.xml
+/Backend/.idea/.idea.track-list-api/.idea/projectSettingsUpdater.xml
+/Backend/.idea/.idea.track-list-api/.idea/.idea.track-list-api.iml
+/Backend/.idea/.idea.track-list-api/.idea/queries/
+/Backend/.idea/.idea.track-list-api/.idea/dataSources/
+/Backend/.idea/.idea.track-list-api/.idea/dataSources.local.xml
+/Backend/.idea/.idea.track-list-api/.idea/httpRequests/
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,31 @@
+services:
+  # --- CADDY (Імітуємо реальну маршрутизацію) ---
+  dev-caddy:
+    image: caddy:alpine
+    container_name: caddy-dev
+    ports:
+      - "80:80"
+    volumes:
+      - ./Caddyfile.dev:/etc/caddy/Caddyfile
+      - ./uploads:/srv/uploads
+    depends_on:
+      - dev-api
+
+  # --- API (.NET в режимі Watch) ---
+  dev-api:
+    working_dir: /app
+    build:
+      context: ./Backend/track-list-api
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./Backend/track-list-api:/app
+      - /app/bin
+      - /app/obj
+      - ./uploads:/app/uploads
+      # SQLite database file lives in ./data (host) → /app/data (container)
+      - ./data:/app/data
+    env_file:
+      - .env
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+    command: dotnet run --urls=http://0.0.0.0:8080

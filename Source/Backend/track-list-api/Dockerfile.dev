@@ -1,0 +1,8 @@
+﻿FROM mcr.microsoft.com/dotnet/sdk:10.0
+WORKDIR /app
+EXPOSE 8080
+
+COPY ["track-list-api.csproj", "."]
+RUN dotnet restore "track-list-api.csproj"
+
+COPY . .

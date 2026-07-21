@@ -1,0 +1,42 @@
+# Performance test overlay (SQLite) — isolated port, separate DB file.
+# Usage: docker compose -f docker-compose.perf-sqlite.yaml up -d
+
+services:
+  perf-api-sqlite:
+    build:
+      context: ../../Backend/track-list-api
+      dockerfile: Dockerfile
+    container_name: perf-api-sqlite
+    env_file:
+      - .env.perf
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - CONNECTION_STRING=Data Source=/app/data/tracklist_perf.db;Cache=Shared;Mode=ReadWriteCreate;Foreign Keys=True
+      - DOTNET_gcServer=1
+    volumes:
+      - perf_uploads_sqlite:/app/uploads
+      - ./data:/app/data
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 2G
+        reservations:
+          cpus: '2'
+          memory: 1G
+    restart: unless-stopped
+
+  perf-caddy-sqlite:
+    image: caddy:alpine
+    container_name: perf-caddy-sqlite
+    ports:
+      - "8091:80"
+    volumes:
+      - ./Caddyfile.perf-sqlite:/etc/caddy/Caddyfile
+      - perf_uploads_sqlite:/srv/uploads
+    depends_on:
+      - perf-api-sqlite
+    restart: unless-stopped
+
+volumes:
+  perf_uploads_sqlite:

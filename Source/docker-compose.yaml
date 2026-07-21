@@ -1,0 +1,85 @@
+services:
+  caddy:
+    image: caddy:alpine
+    container_name: caddy-gateway
+    restart: unless-stopped
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+      - ./uploads:/srv/uploads
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  web:
+    image: track-list-web
+    build:
+      context: ./Frontend
+      dockerfile: Dockerfile
+      args:
+        - PUBLIC_API_URL=${PUBLIC_API_URL}
+    env_file:
+      - .env
+    depends_on:
+      api:
+        condition: service_healthy
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: on-failure
+
+  api:
+    image: track-list-api
+    build:
+      context: ./Backend/track-list-api
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      - CONNECTION_STRING=Data Source=/app/data/tracklist.db;Cache=Shared;Mode=ReadWriteCreate
+      - DOTNET_gcServer=1
+      - DOTNET_EnableDiagnostics=0
+    volumes:
+      - ./uploads:/app/uploads
+      - ./data:/app/data
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8080/api/media/catalog?pageSize=1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 512M
+    restart: on-failure
+
+volumes:
+  caddy_data:
+  caddy_config:

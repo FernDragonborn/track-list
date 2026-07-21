@@ -1,0 +1,36 @@
+{$SITE_ADDRESS::80} {
+    # Стиснення трафіку (gzip/zstd) для швидкості
+    encode gzip zstd
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+        Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+        -Server
+    }
+
+    # ---------------------------------------------------------
+    # 1. СТАТИКА (Аватарки та картинки)
+    # ---------------------------------------------------------
+    # Якщо запит починається з /uploads/, Caddy віддасть файл з папки.
+    # handle_path автоматично "відрізає" префікс /uploads/ перед пошуком файлу.
+    handle_path /uploads/* {
+        root * /srv/uploads
+        file_server
+    }
+
+    # ---------------------------------------------------------
+    # 2. БЕКЕНД (.NET API)
+    # ---------------------------------------------------------
+    # Всі запити на /api/ йдуть на контейнер з дотнетом
+    reverse_proxy /api/* api:8080
+
+    # ---------------------------------------------------------
+    # 3. ФРОНТЕНД (SvelteKit)
+    # ---------------------------------------------------------
+    # Все інше йде на фронтенд
+    reverse_proxy * web:3000
+}

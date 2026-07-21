@@ -1,0 +1,783 @@
+openapi: 3.0.3
+
+info:
+  title: tracklist API
+  description: |
+    REST API для автентифікації, керування користувачами,
+    медіа-контентом, відгуками, коментарями, списками та взаємодіями.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:7288
+    description: Local ASP.NET Core API
+
+tags:
+  - name: Auth
+  - name: Users
+  - name: Subscriptions
+  - name: Reports
+  - name: Media
+  - name: Reviews
+  - name: Comments
+  - name: Playlists
+
+paths:
+
+  # ===================== AUTH =====================
+
+  /api/auth/register:
+    post:
+      tags: [Auth]
+      summary: Реєстрація користувача
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserDto'
+            example:
+              email: user@mail.com
+              password: password123
+              role: User
+      responses:
+        "200":
+          description: Successfully registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+              example:
+                data:
+                  email: user@mail.com
+                  role: User
+        "400":
+          description: Wrong login or password
+
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Логін
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              email: user@mail.com
+              password: password123
+      responses:
+        "200":
+          description: Successfully logged in
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+              example:
+                data:
+                  email: user@mail.com
+                  token: jwt-token
+        "400":
+          description: Wrong login or password
+
+  /api/auth/renewToken:
+    post:
+      tags: [Auth]
+      summary: Оновлення JWT токену
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RenewTokenRequest'
+            example:
+              refreshToken: refresh-token
+      responses:
+        "200":
+          description: Token renewed
+          content:
+            application/json:
+              example:
+                data:
+                  token: new-jwt-token
+        "400":
+          description: JWT expired or invalid
+
+  # ===================== USERS =====================
+
+  /api/user/{email}:
+    get:
+      tags: [Users]
+      summary: Отримання профілю користувача
+      parameters:
+        - name: email
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              example:
+                data:
+                  email: user@mail.com
+                  role: User
+        "400":
+          description: User not found
+
+    delete:
+      tags: [Users]
+      summary: Деактивація (видалення) профілю користувача
+      responses:
+        "200":
+          description: User deleted
+        "400":
+          description: User not found
+
+  /api/user:
+    get:
+      tags: [Users]
+      summary: Отримання списку користувачів (Admin)
+      responses:
+        "200":
+          description: Users list
+          content:
+            application/json:
+              example:
+                data:
+                  - email: admin@mail.com
+                    role: Admin
+
+    put:
+      tags: [Users]
+      summary: Редагування деталей профілю користувача
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserDto'
+            example:
+              email: user@mail.com
+              role: User
+      responses:
+        "200":
+          description: User updated
+        "400":
+          description: Not authorized
+
+    post:
+      tags: [Users]
+      summary: Додавання зображення профілю користувача
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserDto'
+      responses:
+        "200":
+          description: Profile picture uploaded
+
+  # ===================== SUBSCRIPTIONS =====================
+
+  /api/subscriptions/{userId}:
+    post:
+      tags: [Subscriptions]
+      summary: Додавання підписки на користувача
+      responses:
+        "201":
+          description: Subscription added
+    delete:
+      tags: [Subscriptions]
+      summary: Видалення підписки
+      responses:
+        "204":
+          description: Subscription removed
+
+  # ===================== Reports =====================
+
+  /api/reports:
+    post:
+      tags: [Reports]
+      summary: Додавання скарги
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Complaint'
+            example:
+              userId: 5
+              reason: Abuse
+      responses:
+        "201":
+          description: Complaint created
+
+    get:
+      tags: [Reports]
+      summary: Отримання списку скарг
+      responses:
+        "200":
+          description: Reports list
+
+  /api/reports/{id}:
+    get:
+      tags: [Reports]
+      summary: Отримання скарги за ID
+      responses:
+        "200":
+          description: Complaint details
+    put:
+      tags: [Reports]
+      summary: Редагування скарги
+      responses:
+        "200":
+          description: Complaint updated
+    delete:
+      tags: [Reports]
+      summary: Видалення скарги
+      responses:
+        "204":
+          description: Complaint deleted
+
+  # ===================== MEDIA =====================
+
+  /api/media:
+    get:
+      tags: [Media]
+      summary: Отримання списку медіа
+      responses:
+        "200":
+          description: Media list
+    post:
+      tags: [Media]
+      summary: Додавання медіа
+      responses:
+        "201":
+          description: Media created
+
+  /api/media/{id}:
+    get:
+      tags: [Media]
+      summary: Отримання медіа за ID
+      responses:
+        "200":
+          description: Media info
+    put:
+      tags: [Media]
+      summary: Редагування медіа
+      responses:
+        "200":
+          description: Media updated
+    delete:
+      tags: [Media]
+      summary: Видалення медіа
+      responses:
+        "204":
+          description: Media deleted
+    
+  /api/media/{mediaId}/translations:
+    post:
+      tags: [Media]
+      summary: Додавання перекладу медіа
+      parameters:
+        - name: mediaId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MediaTranslationRequest'
+            example:
+              languageCode: uk
+              title: Назва українською
+              description: Опис українською
+      responses:
+        "201":
+          description: Translation created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaTranslation'
+
+  /api/media/translations/{id}:
+    put:
+      tags: [Media]
+      summary: Редагування перекладу медіа
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MediaTranslationRequest'
+      responses:
+        "200":
+          description: Translation updated
+
+    delete:
+      tags: [Media]
+      summary: Видалення перекладу медіа
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Translation deleted
+    
+  /api/media/{mediaId}/tracking:
+    post:
+      tags: [Media]
+      summary: Додавання статусу перегляду медіа
+      parameters:
+        - name: mediaId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrackingStatusRequest'
+      responses:
+        "201":
+          description: Tracking status created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrackingStatus'
+
+    put:
+      tags: [Media]
+      summary: Зміна статусу перегляду медіа
+      parameters:
+        - name: mediaId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrackingStatusRequest'
+      responses:
+        "200":
+          description: Tracking status updated
+
+    delete:
+      tags: [Media]
+      summary: Видалення статусу перегляду медіа
+      parameters:
+        - name: mediaId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Tracking status deleted
+
+  # ===================== REVIEWS =====================
+
+  /api/media/{id}/reviews:
+    post:
+      tags: [Reviews]
+      summary: Додавання відгуку
+      responses:
+        "201":
+          description: Review added
+    get:
+      tags: [Reviews]
+      summary: Отримання списку відгуків
+      responses:
+        "200":
+          description: Reviews list
+
+  /api/reviews/{id}:
+    put:
+      tags: [Reviews]
+      summary: Редагування тексту відгуку
+      responses:
+        "200":
+          description: Review updated
+    delete:
+      tags: [Reviews]
+      summary: Видалення відгуку
+      responses:
+        "204":
+          description: Review deleted
+
+  /api/reviews/{id}/likes:
+    post:
+      tags: [Reviews]
+      summary: Додавання вподобання
+      responses:
+        "201":
+          description: Like added
+    delete:
+      tags: [Reviews]
+      summary: Видалення вподобання
+      responses:
+        "204":
+          description: Like removed
+
+  # ===================== COMMENTS =====================
+
+  /api/reviews/{id}/comments:
+    post:
+      tags: [Comments]
+      summary: Додавання коментаря
+      responses:
+        "201":
+          description: Comment added
+    get:
+      tags: [Comments]
+      summary: Отримання списку коментарів
+      responses:
+        "200":
+          description: Comments list
+
+  /api/comments/{id}:
+    put:
+      tags: [Comments]
+      summary: Редагування коментаря
+      responses:
+        "200":
+          description: Comment updated
+    delete:
+      tags: [Comments]
+      summary: Видалення коментаря
+      responses:
+        "204":
+          description: Comment deleted
+
+  # ===================== Playlists =====================
+
+  /api/Playlists:
+    post:
+      tags: [Playlists]
+      summary: Додавання списку
+      responses:
+        "201":
+          description: List created
+    get:
+      tags: [Playlists]
+      summary: Отримання списку списків користувача
+      responses:
+        "200":
+          description: Playlists retrieved
+
+  /api/Playlists/{id}:
+    put:
+      tags: [Playlists]
+      summary: Редагування назви списку
+      responses:
+        "200":
+          description: List updated
+    delete:
+      tags: [Playlists]
+      summary: Видалення списку
+      responses:
+        "204":
+          description: List deleted
+
+  /api/Playlists/{playlistId}/media:
+    post:
+      tags: [Playlists]
+      summary: Додавання медіа до списку
+      parameters:
+        - name: playlistId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlaylistItemRequest'
+            example:
+              mediaId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+              order: 1
+      responses:
+        "201":
+          description: Media added to playlist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaylistItem'
+
+    get:
+      tags: [Playlists]
+      summary: Отримання списку медіа у списку
+      parameters:
+        - name: playlistId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Playlist media list
+          content:
+            application/json:
+              example:
+                data:
+                  - mediaId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                    order: 1
+  
+  /api/Playlists/{playlistId}/media/{mediaId}:
+    delete:
+      tags: [Playlists]
+      summary: Видалення медіа зі списку
+      parameters:
+        - name: playlistId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: mediaId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Media removed from playlist
+  
+  /api/Playlists/{playlistId}/access:
+    post:
+      tags: [Playlists]
+      summary: Надавання користувачу доступу до списку
+      parameters:
+        - name: playlistId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlaylistAccessRequest'
+      responses:
+        "201":
+          description: Access granted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaylistAccess'
+
+    get:
+      tags: [Playlists]
+      summary: Отримання списку користувачів з доступом до списку
+      parameters:
+        - name: playlistId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Users with access
+
+components:
+  schemas:
+
+    UserDto:
+      type: object
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+        role:
+          type: string
+        profilePic:
+          type: string
+          nullable: true
+
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+
+    RenewTokenRequest:
+      type: object
+      properties:
+        refreshToken:
+          type: string
+
+    UserResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/UserDto'
+
+    Complaint:
+      type: object
+      properties:
+        userId:
+          type: integer
+        reason:
+          type: string
+
+    MediaTranslation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        mediaId:
+          type: string
+          format: uuid
+        languageCode:
+          type: string
+          maxLength: 5
+          example: uk
+        title:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 10000
+        status:
+          $ref: '#/components/schemas/TranslationStatus'
+        processedByUserId:
+          type: string
+          format: uuid
+          nullable: true
+
+    MediaTranslationRequest:
+      type: object
+      properties:
+        languageCode:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+
+    TrackingStatus:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+        mediaId:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/TrackingStatusCode'
+        progress:
+          type: integer
+          nullable: true
+
+    TrackingStatusRequest:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/TrackingStatusCode'
+        progress:
+          type: integer
+          nullable: true
+
+    TranslationStatus:
+      type: string
+      enum:
+        - PENDING
+        - APPROVED
+        - REJECTED
+
+    TrackingStatusCode:
+      type: string
+      enum:
+        - PLANNED
+        - WATCHING
+        - COMPLETED
+        - DROPPED
+
+    PlaylistItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        playlistId:
+          type: string
+          format: uuid
+        mediaId:
+          type: string
+          format: uuid
+        order:
+          type: integer
+          nullable: true
+
+    PlaylistItemRequest:
+      type: object
+      required: [mediaId]
+      properties:
+        mediaId:
+          type: string
+          format: uuid
+        order:
+          type: integer
+          nullable: true
+
+    PlaylistAccess:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        playlistId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time            
+
+    PlaylistAccessRequest:
+      type: object
+      required: [userId]
+      properties:
+        userId:
+          type: string
+          format: uuid

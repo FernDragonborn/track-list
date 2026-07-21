@@ -1,0 +1,47 @@
+################################################################################
+# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
+################################################################################
+
+/.vs/DevOps/v17
+/.vs
+*.user
+/Source/Backend/track-list-api/.vs
+/Source/Backend/track-list-api/track-list-api/bin
+/Source/Backend/track-list-api/track-list-api/obj
+/Source/Backend/api/.vs
+/Source/Backend/api/api/obj
+/Source/Backend/api/api/bin
+/Source/Backend/track-list-api/track-list-api/.env
+/Source/Backend/track-list-api/TrackListTests/bin
+/Source/Backend/track-list-api/TrackListTests/obj
+Source/Backend/track-list-api/track-list-api.sln.DotSettings.user
+Source/backend/track-list-api/TrackListTests/Features/*.feature.cs
+/Source/Backend/track-list-api/bin
+/Source/Backend/TrackListTests/obj
+[Bb]in/
+[Oo]bj/
+Source/.env
+Source/Backend/track-list-api/.env
+/Source/backend/.vs/track-list-api/v18
+/Source/backend/.vs/track-list-api/FileContentIndex
+/Source/backend/.vs/track-list-api/DesignTimeBuild
+/Source/backend/.vs/ProjectEvaluation
+/Source/backend/.vs/track-list-api/copilot-chat/9f33b38a/sessions
+/Source/backend/.vs/track-list-api/CopilotIndices/18.0.988.22099
+Source/Backend/qodana.yaml
+Source/Backend/TrackListTests/results.txt
+Source/Backend/TrackListTests/Features/*.feature.cs
+.claude/
+Docs/Track-list waterfall.csv
+/Source/Backend/track-list-api/logs
+.aider*
+/Source/Tests/Performance/results
+
+# SQLite database files
+/Source/data/
+*.db
+*.db-shm
+*.db-wal
+
+# TrackList drafts (local only)
+/Docs/TrackList-notes/

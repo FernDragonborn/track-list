@@ -1,0 +1,78 @@
+# Performance test overlay — extends prod compose with isolated ports/DB.
+# Usage: docker compose -f docker-compose.perf.yaml up -d
+
+services:
+  # ── API (reuses prod Dockerfile, different container name) ──
+  perf-api:
+    build:
+      context: ../../Backend/track-list-api
+      dockerfile: Dockerfile
+    container_name: perf-api
+    depends_on:
+      perf-db:
+        condition: service_healthy
+    env_file:
+      - .env.perf
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - DB_HOST=perf-db
+      - CONNECTION_STRING=Host=perf-db;Database=tracklistdb_perf;Username=postgres;Password=password;Pooling=true;Minimum Pool Size=10;Maximum Pool Size=100
+      - DOTNET_gcServer=1
+    volumes:
+      - perf_uploads:/app/uploads
+      - ./.env.perf:/app/.env:ro
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 2G
+        reservations:
+          cpus: '2'
+          memory: 1G
+    restart: unless-stopped
+
+  # ── Caddy (port 8090 to avoid conflict with prod on 80) ──
+  perf-caddy:
+    image: caddy:alpine
+    container_name: perf-caddy
+    ports:
+      - "8090:80"
+    volumes:
+      - ./Caddyfile.perf:/etc/caddy/Caddyfile
+      - perf_uploads:/srv/uploads
+    depends_on:
+      - perf-api
+    restart: unless-stopped
+
+  # ── PostgreSQL (same tuning as prod, separate volume + DB name) ──
+  perf-db:
+    image: postgres:16-alpine
+    container_name: perf-db
+    ports:
+      - "5433:5432"
+    volumes:
+      - perf_postgres_data:/var/lib/postgresql/data
+      - ../../postgres.conf:/etc/postgresql/postgres.conf:ro
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=tracklistdb_perf
+    command: postgres -c config_file=/etc/postgresql/postgres.conf
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '1'
+          memory: 2G
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+    shm_size: '256m'
+
+volumes:
+  perf_postgres_data:
+  perf_uploads:

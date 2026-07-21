@@ -1,0 +1,453 @@
+# Backend TDD Test Plan
+
+## Context
+
+Backend has 10 controllers, 8 services, 16 repositories, 4 validators, utilities. Existing tests cover controller layer (mocking services) + BDD acceptance scenarios. **Gap**: service business logic, validators, utilities, repositories, integration — all untested. Goal: comprehensive TDD coverage bottom-up.
+
+## Test Architecture
+
+```
+Layer 0: Validators + Utilities     (pure logic, no deps)
+Layer 1: Service unit tests         (mock IUnitOfWork + repos)
+Layer 2: Repository + DbContext     (EF InMemory or SQLite)
+Layer 3: Integration tests          (WebApplicationFactory)
+Layer 4: Middleware                  (custom pipeline tests)
+```
+
+## Execution Order (TDD — write tests first, verify they fail, then confirm existing code passes)
+
+---
+
+### Phase 1: Validators (~20 tests)
+
+**File:** `TrackListTests/Validators/RegisterRequestValidatorTests.cs`
+- `Valid_Request_Passes`
+- `Empty_Email_Fails`
+- `Invalid_Email_Format_Fails`
+- `Empty_Username_Fails`
+- `Reserved_Username_Admin_Fails` (admin, administrator, moderator, mod, system, support, root)
+- `Password_TooShort_Fails` (< 8 chars)
+- `Password_NoDigit_Fails`
+- `Password_NoLetter_Fails`
+- `ConfirmPassword_Mismatch_Fails`
+- `Valid_Password_8Chars_LetterAndDigit_Passes`
+
+**File:** `TrackListTests/Validators/LoginRequestValidatorTests.cs`
+- `Valid_Request_Passes`
+- `Empty_Email_Fails`
+- `Empty_Password_Fails`
+- `Password_TooShort_Fails`
+
+**File:** `TrackListTests/Validators/CollectionValidatorTests.cs`
+- `CreateCollection_Valid_Passes`
+- `CreateCollection_EmptyName_Fails`
+- `CreateCollection_NameTooLong_Fails` (> 200 chars)
+- `CreateCollection_DescriptionTooLong_Fails` (> 1000 chars)
+- `UpdateCollection_Valid_Passes`
+- `UpdateCollection_NameTooLong_Fails`
+
+**File:** `TrackListTests/Validators/UserDtoValidatorTests.cs`
+- `Valid_UserDto_Passes`
+- `Username_TooLong_Fails` (> 40 chars)
+- `Invalid_Email_Fails`
+- `Password_TooShort_Fails` (< 8 chars)
+
+**Critical files:**
+- `track-list-api/Utils/Validators.cs`
+- `track-list-api/DTOs/RequestTypes.cs`
+
+---
+
+### Phase 2: Utilities (~15 tests)
+
+**File:** `TrackListTests/Utils/GuidParserTests.cs`
+- `TryParseGuid_ValidGuid_ReturnsOk`
+- `TryParseGuid_Null_ReturnsFail`
+- `TryParseGuid_InvalidString_ReturnsFail`
+- `TryParseJsonProp_ValidProp_ReturnsGuid`
+- `TryParseJsonProp_MissingProp_ReturnsFail`
+
+**File:** `TrackListTests/Utils/DateOnlyConverterTests.cs`
+- `Serialize_DateOnly_WritesCorrectFormat`
+- `Deserialize_ValidString_ReturnsDateOnly`
+- `Deserialize_InvalidString_Throws`
+
+**File:** `TrackListTests/Utils/SanitizerServiceTests.cs`
+- `Sanitize_PlainText_Unchanged`
+- `Sanitize_ScriptTag_Removed`
+- `Sanitize_OnClickAttribute_Removed`
+- `Sanitize_SafeHtml_Preserved` (bold, italic, links)
+
+**File:** `TrackListTests/Utils/StaticDetailsTests.cs`
+- `UserProfileImagePath_IsUploads`
+- `GetUserProfileImagePath_IncludesUserId`
+
+**File:** `TrackListTests/Utils/TmdbMappingTests.cs`
+- `ToEndpoint_Movie_ReturnsMovie`
+- `ToEndpoint_Series_ReturnsTv`
+- `ToEndpoint_InvalidType_Throws`
+- `FromTmdb_Movie_ReturnsMovie`
+- `FromTmdb_Tv_ReturnsSeries`
+- `FromTmdb_Invalid_Throws`
+
+**File:** `TrackListTests/Utils/ResultTests.cs`
+- `Ok_IsSuccess_True`
+- `Ok_Error_IsEmpty`
+- `Fail_IsFailure_True`
+- `Fail_AccessValue_Throws`
+- `Ok_AccessEx_Throws`
+- `Exception_ContainsStackTrace`
+- `Success_WithErrorMessage_ThrowsInvariant`
+- `Failure_WithoutErrorMessage_ThrowsInvariant`
+
+**File:** `TrackListTests/Utils/MappingConfigTests.cs`
+- `AutoMapper_Configuration_IsValid` (cfg.AssertConfigurationIsValid)
+
+**File:** `TrackListTests/Utils/CsvEscapeTests.cs`
+- `EscapeCsv_PlainText_Unchanged`
+- `EscapeCsv_ContainsComma_Quoted`
+- `EscapeCsv_ContainsQuote_DoubleQuoted`
+- `EscapeCsv_ContainsNewline_Quoted`
+
+**Critical files:**
+- `track-list-api/Utils/GuidParser.cs`
+- `track-list-api/Utils/DateOnlyConverter.cs`
+- `track-list-api/Services/SanitizerService.cs`
+- `track-list-api/Utils/MappingConfig.cs`
+- `track-list-api/Utils/TmdbMapping.cs`
+- `track-list-api/Result.cs`
+- `track-list-api/Controllers/AdminController.cs` (EscapeCsv helper)
+
+---
+
+### Phase 3: Service Unit Tests (~90 tests) — BIGGEST PHASE
+
+#### 3A: AuthService (~8 tests)
+**File:** `TrackListTests/Services/AuthServiceUnitTests.cs`
+- `Login_ByEmail_ReturnsTokens`
+- `Login_ByUsername_ReturnsTokens`
+- `Login_EmptyEmail_Fails`
+- `Login_EmptyPassword_Fails`
+- `Login_UserNotFound_Fails`
+- `Login_WrongPassword_Fails`
+- `RenewToken_ValidRefresh_ReturnsNewPair`
+- `RenewToken_AccessTokenPassed_Fails`
+
+Note: Some overlap with existing authServiceTests.cs — check, skip duplicates.
+
+#### 3B: UserService (~25 tests)
+**File:** `TrackListTests/Services/UserServiceTests.cs`
+
+Registration:
+- `Register_Valid_CreatesUser`
+- `Register_DuplicateEmail_Fails`
+- `Register_ReservedUsername_Fails`
+- `Register_WeakPassword_Fails`
+- `Register_SetsDefaultRole_User`
+- `Register_HashesPasswordWithSalt`
+
+Profile:
+- `GetByUsername_Exists_ReturnsDto`
+- `GetByUsername_NotFound_Fails`
+- `GetByUsername_WithFollowCheck_SetsIsFollowing`
+- `GetUsersPaged_SearchTerm_FiltersResults`
+- `UpdateUser_Self_Succeeds`
+- `UpdateUser_Other_NonAdmin_Fails`
+- `UpdateUser_Admin_CanUpdateOther`
+- `UpdateUser_PreservesRole`
+
+Role management:
+- `UpdateRole_Valid_ChangesRole`
+- `UpdateRole_Self_Fails`
+- `UpdateRole_AlreadySameRole_ReturnsOk`
+- `UpdateRole_InvalidEnum_Fails`
+
+Password:
+- `UpdatePassword_WrongCurrent_Fails`
+- `UpdatePassword_Valid_RegeneratesSalt`
+- `ResetPassword_Valid_ReturnsNewPassword`
+
+Follow:
+- `Follow_Valid_CreatesFollowEntity`
+- `Follow_Self_Fails`
+- `Follow_Duplicate_Idempotent`
+- `Unfollow_NotFollowing_Idempotent`
+
+Avatar:
+- `SaveAvatar_InvalidExtension_Fails`
+- `SaveAvatar_EmptyPath_Fails`
+- `DeleteAvatar_RemovesFileAndRecord`
+- `GetAvatar_PathTraversal_Fails`
+- `GetAvatar_ValidFile_ReturnsBytesAndMime`
+
+**Critical files:**
+- `track-list-api/Services/UserService.cs`
+
+#### 3C: ReviewService (~20 tests)
+**File:** `TrackListTests/Services/ReviewServiceTests.cs`
+
+Reviews:
+- `CreateReview_Valid_ReturnsDto`
+- `CreateReview_MediaNotFound_Fails`
+- `CreateReview_DuplicatePerUserPerMedia_Fails` (BRL-4)
+- `GetReviews_Paged_ReturnsWithCounts`
+- `GetReviews_SetsIsLikedForCurrentUser`
+- `UpdateReview_Owner_Succeeds`
+- `UpdateReview_NotOwner_Fails`
+- `DeleteReview_Owner_Succeeds`
+- `DeleteReview_Admin_Succeeds`
+- `DeleteReview_NotOwner_Fails`
+
+Likes:
+- `ToggleReviewLike_New_CreatesLike`
+- `ToggleReviewLike_Existing_RemovesLike`
+- `ToggleReviewLike_ReturnsCorrectCount`
+
+Comments:
+- `CreateComment_TopLevel_Succeeds`
+- `CreateComment_Reply_Succeeds`
+- `CreateComment_ReplyToReply_Fails` (max depth 1)
+- `CreateComment_ReviewNotFound_Fails`
+- `GetComments_ReturnsThreadedStructure`
+- `DeleteComment_Owner_Succeeds`
+- `ToggleCommentLike_TogglesCorrectly`
+
+**Critical files:**
+- `track-list-api/Services/ReviewService.cs`
+
+#### 3D: CollectionService (~18 tests)
+**File:** `TrackListTests/Services/CollectionServiceTests.cs`
+
+CRUD:
+- `Create_Valid_ReturnsCollectionDto`
+- `GetById_Public_AnyUserCanView`
+- `GetById_Private_OwnerCanView`
+- `GetById_Private_SharedUserCanView`
+- `GetById_Private_StrangerDenied`
+- `GetByOwner_FiltersPrivateForNonOwner`
+- `GetPublic_ReturnsOnlyPublic`
+- `Update_Owner_Succeeds`
+- `Update_NotOwner_Fails`
+- `Delete_Owner_Succeeds`
+- `Delete_Admin_Succeeds`
+
+Items:
+- `AddItem_Valid_Succeeds`
+- `AddItem_Duplicate_Fails`
+- `AddItem_NoWriteAccess_Fails`
+- `RemoveItem_Valid_Succeeds`
+- `Reorder_Valid_UpdatesOrder`
+
+Sharing:
+- `GrantAccess_Valid_Succeeds`
+- `GrantAccess_Self_Fails`
+- `GrantAccess_Duplicate_Fails`
+- `RevokeAccess_Valid_Succeeds`
+
+**Critical files:**
+- `track-list-api/Services/CollectionService.cs`
+
+#### 3E: FeedService (~6 tests)
+**File:** `TrackListTests/Services/FeedServiceTests.cs`
+- `PersonalFeed_NoFollows_ReturnsEmpty`
+- `PersonalFeed_WithFollows_ReturnsReviewsFromFollowed`
+- `PersonalFeed_Paged_RespectsPageSize`
+- `GlobalFeed_ReturnsAllReviews`
+- `GlobalFeed_Authenticated_SetsIsLiked`
+- `GlobalFeed_Guest_IsLikedAlwaysFalse`
+
+**Critical files:**
+- `track-list-api/Services/FeedService.cs`
+
+#### 3F: MediaGetService (~8 tests)
+**File:** `TrackListTests/Services/MediaGetServiceTests.cs`
+- `GetById_InDb_ReturnsCached`
+- `GetById_NotInDb_FetchesExternal`
+- `GetById_InvalidFormat_Fails`
+- `GetById_ExternalNotFound_Fails`
+- `Search_LocalResults_Returned`
+- `Search_ExternalResults_Deduped`
+- `Search_NoResults_ReturnsError`
+- `GetTranslation_CachedTranslation_ReturnsCached`
+- `GetTranslation_MissingTranslation_FetchesExternal`
+
+**Critical files:**
+- `track-list-api/Services/MediaGetService.cs`
+
+#### 3G: MediaOperationService (~8 tests)
+**File:** `TrackListTests/Services/MediaOperationServiceTests.cs`
+- `Add_Valid_ReturnsMappedDto`
+- `Add_DuplicateExternalId_Fails`
+- `AddTranslation_Valid_SetsPending`
+- `AddTranslation_DuplicateLanguage_Fails`
+- `Update_Valid_Succeeds`
+- `UpdateTranslation_ResetsToPending`
+- `UpdateTranslationStatus_SetsProcessedBy`
+- `Delete_Valid_Succeeds`
+
+**Critical files:**
+- `track-list-api/Services/MediaOperationService.cs`
+
+#### 3H: ReportService (~8 tests)
+**File:** `TrackListTests/Services/ReportServiceTests.cs`
+- `Create_SetsPendingStatus`
+- `GetAll_NoFilter_ReturnsAll`
+- `GetAll_StatusFilter_FiltersCorrectly`
+- `Resolve_Delete_SoftDeletesTarget`
+- `Resolve_Dismiss_NoTargetChange`
+- `Resolve_AlreadyResolved_Fails`
+- `Resolve_InvalidResolution_Fails`
+- `Resolve_ReviewTarget_DeletesReview`
+
+**Critical files:**
+- `track-list-api/Services/ReportService.cs`
+
+---
+
+### Phase 4: External Service Tests (~6 tests)
+
+**File:** `TrackListTests/Services/TmdbServiceTests.cs`
+
+Uses `MockHttpMessageHandler` to mock HTTP calls:
+- `Search_ValidQuery_ReturnsMappedMedia`
+- `Search_EmptyResult_ReturnsEmpty`
+- `GetById_Movie_ReturnsMappedMedia`
+- `GetById_Tv_ReturnsMappedMedia`
+- `GetTranslation_ReturnsTranslationDto`
+- `GetById_ApiError_Throws`
+
+**Critical files:**
+- `track-list-api/Services/TmdbService.cs`
+
+---
+
+### Phase 5: Middleware Tests (~4 tests)
+
+**File:** `TrackListTests/Middleware/GlobalExceptionHandlerTests.cs`
+- `NoException_PassesThrough`
+- `Exception_Returns500`
+- `Exception_LogsError`
+- `Exception_ResponseIsCamelCaseJson`
+
+**Critical files:**
+- `track-list-api/Middleware/GlobalExceptionHandler.cs`
+
+---
+
+### Phase 6: DbContext + Repository Tests (~15 tests)
+
+Requires **EF Core InMemory** or **SQLite in-memory** provider.
+
+**File:** `TrackListTests/Data/DbContextTests.cs`
+- `SaveChanges_DeletedEntity_SetsSoftDelete`
+- `SaveChanges_DeletedEntity_DoesNotHardDelete`
+- `QueryFilter_Review_ExcludesSoftDeleted`
+- `QueryFilter_Comment_ExcludesSoftDeleted`
+- `QueryFilter_Playlist_ExcludesSoftDeleted`
+- `QueryFilter_PlaylistAccess_ExcludesDeletedPlaylist`
+- `UniqueIndex_ReviewPerUserPerMedia_EnforcedOnAdd`
+- `UniqueIndex_FollowerFollowing_Enforced`
+
+**File:** `TrackListTests/Data/RepositoryTests.cs`
+- `AddAsync_SetsCreatedAt`
+- `GetAsync_WithFilter_ReturnsFiltered`
+- `GetPagedAsync_ReturnsCorrectPage`
+- `GetPagedAsync_ReturnsTotalCount`
+- `GetOneAsync_NotFound_ReturnsFail`
+- `Remove_DeletesEntity`
+- `GetAsync_WithInclude_LoadsNavProperty`
+
+**Critical files:**
+- `track-list-api/DbContext/TrackListDbContext.cs`
+- `track-list-api/Repository/Repository.cs`
+
+**NuGet dependency needed:** `Microsoft.EntityFrameworkCore.InMemory` or `Microsoft.EntityFrameworkCore.Sqlite`
+
+---
+
+### Phase 7: Integration Tests (~10 tests, optional/stretch)
+
+**File:** `TrackListTests/Integration/ApiIntegrationTests.cs`
+
+Uses `WebApplicationFactory<Program>` with test DB:
+- `Register_Login_GetProfile_Flow`
+- `CreateMedia_Search_FindsIt`
+- `CreateReview_GetFeed_ShowsReview`
+- `CreateCollection_AddItem_GetCollection`
+- `Unauthorized_Endpoint_Returns401`
+- `AdminOnly_AsUser_Returns403`
+- `CreateReport_Resolve_DeletesTarget`
+
+**NuGet dependency needed:** `Microsoft.AspNetCore.Mvc.Testing`
+
+---
+
+## Summary
+
+| Phase | Tests | Priority |
+|-------|-------|----------|
+| 1. Validators | ~20 | HIGH — pure logic, fast |
+| 2. Utilities | ~33 | HIGH — pure logic, fast (incl. Result, TmdbMapping, CsvEscape) |
+| 3. Services | ~90 | CRITICAL — business logic |
+| 4. External (TMDB) | ~6 | MEDIUM |
+| 5. Middleware | ~4 | LOW |
+| 6. DbContext + Repo | ~15 | MEDIUM — needs InMemory provider |
+| 7. Integration | ~10 | LOW — stretch goal |
+| **Total** | **~178** | |
+
+## Verification
+
+After each phase:
+1. `dotnet test --filter "FullyQualifiedName~TrackListTests.Validators"` (etc.)
+2. `dotnet test --collect:"XPlat Code Coverage"` for coverage report
+3. All existing tests must still pass (regression check)
+
+## New NuGet Dependencies
+
+```xml
+<!-- TrackListTests.csproj -->
+<PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.*" />
+<PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.*" />
+```
+
+## File Organization
+
+```
+TrackListTests/
+├── Validators/
+│   ├── RegisterRequestValidatorTests.cs
+│   ├── LoginRequestValidatorTests.cs
+│   ├── CollectionValidatorTests.cs
+│   └── UserDtoValidatorTests.cs
+├── Utils/
+│   ├── GuidParserTests.cs
+│   ├── DateOnlyConverterTests.cs
+│   ├── SanitizerServiceTests.cs
+│   ├── StaticDetailsTests.cs
+│   ├── TmdbMappingTests.cs
+│   ├── ResultTests.cs
+│   ├── CsvEscapeTests.cs
+│   └── MappingConfigTests.cs
+├── Services/
+│   ├── AuthServiceUnitTests.cs
+│   ├── UserServiceTests.cs
+│   ├── ReviewServiceTests.cs
+│   ├── CollectionServiceTests.cs
+│   ├── FeedServiceTests.cs
+│   ├── MediaGetServiceTests.cs
+│   ├── MediaOperationServiceTests.cs
+│   ├── ReportServiceTests.cs
+│   └── TmdbServiceTests.cs
+├── Middleware/
+│   └── GlobalExceptionHandlerTests.cs
+├── Data/
+│   ├── DbContextTests.cs
+│   └── RepositoryTests.cs
+├── Integration/
+│   └── ApiIntegrationTests.cs
+├── (existing files stay untouched)
+├── adminTests.cs
+├── authServiceTests.cs
+├── ...etc
+└── Helpers.cs
+```
